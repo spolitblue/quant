@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>量化虚拟购买系统 · 操作台</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="bg-glow"></div>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="logo">◈</div>
+    <div>
+      <h1>量化虚拟购买系统</h1>
+      <p class="sub">爬数据 → 虚拟回测 → AI 打分 → 迭代优化</p>
+    </div>
+  </div>
+  <div class="status">
+    <span class="dot"></span>
+    <span id="statusText">服务运行中</span>
+  </div>
+</header>
+
+<main class="container">
+
+  <!-- 控制面板 -->
+  <section class="card control">
+    <div class="card-title">🎛 操作面板</div>
+    <div class="control-grid">
+      <div class="field">
+        <label>股票代码</label>
+        <input id="symbol" type="text" value="601108" maxlength="6" placeholder="如 601108 / 510300">
+        <p class="hint">601108=财通证券</p>
+      </div>
+      <div class="field">
+        <label>回测起点</label>
+        <input id="start" type="text" value="20190101" maxlength="8" placeholder="如 20190101">
+        <p class="hint">格式: 年月日</p>
+      </div>
+      <div class="field">
+        <label>快线天数 (MA)</label>
+        <input id="fast" type="number" value="20" min="3" max="60">
+        <p class="hint">短均线, 越小越敏感</p>
+      </div>
+      <div class="field">
+        <label>慢线天数 (MA)</label>
+        <input id="slow" type="number" value="60" min="10" max="200">
+        <p class="hint">长均线, 越大越平滑</p>
+      </div>
+      <div class="field checkbox-field">
+        <label class="switch-label">
+          <input type="checkbox" id="useAi" checked>
+          <span class="switch"></span>
+          AI 教练打分
+        </label>
+        <p class="hint">本地 Ollama, 数据不出电脑</p>
+      </div>
+      <div class="field">
+        <label>自动迭代时长(分钟)</label>
+        <input id="minutes" type="number" value="60" min="1" max="600">
+        <p class="hint">AI 自动进化循环时长</p>
+      </div>
+      <div class="field">
+        <label>基金代码(专析用)</label>
+        <input id="fundSymbol" type="text" value="020982" maxlength="6" placeholder="如 020982">
+        <p class="hint">020982=华安机器人ETF联接C</p>
+      </div>
+    </div>
+    <div class="actions">
+      <button id="btnFund" class="btn btn-gold">🎯 基金专析</button>
+      <button id="btnWatch" class="btn btn-ghost">📋 多股票监控</button>
+      <button id="btnAdvisor" class="btn btn-purple">🧠 AI 综合研判</button>
+      <button id="btnSignal" class="btn btn-ghost">📡 今日信号</button>
+      <button id="btnIterate" class="btn btn-cyan">▶️ 启动自动迭代</button>
+      <button id="btnOptimize" class="btn btn-primary">🚀 开始优化 (自动寻优 + AI打分)</button>
+      <button id="btnBacktest" class="btn btn-ghost">📊 单次回测</button>
+      <button id="btnReset" class="btn btn-ghost">↺ 重置</button>
+    </div>
+    <p class="hint" style="margin-top: 10px;">💡 多股票监控: 在"股票代码"框输入多只代码用逗号分隔(如 601108,510300,600519)</p>
+  </section>
+
+  <!-- 加载状态 -->
+  <section id="loading" class="card loading hidden">
+    <div class="spinner"></div>
+    <p id="loadingText">正在爬取行情数据...</p>
+    <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
+  </section>
+
+  <!-- KPI 指标 -->
+  <section id="kpiSection" class="kpi-grid hidden">
+    <div class="kpi"><p class="kpi-label">策略总收益</p><p class="kpi-value" id="kpiTotal">—</p></div>
+    <div class="kpi"><p class="kpi-label">年化收益</p><p class="kpi-value" id="kpiAnn">—</p></div>
+    <div class="kpi"><p class="kpi-label">最大回撤</p><p class="kpi-value danger" id="kpiMdd">—</p></div>
+    <div class="kpi"><p class="kpi-label">夏普比率</p><p class="kpi-value" id="kpiSharpe">—</p></div>
+    <div class="kpi"><p class="kpi-label">胜率</p><p class="kpi-value" id="kpiWin">—</p></div>
+    <div class="kpi"><p class="kpi-label">交易次数</p><p class="kpi-value" id="kpiTrades">—</p></div>
+  </section>
+
+  <!-- 图表 -->
+  <section id="chartSection" class="card hidden">
+    <div class="card-title">📈 买卖点与净值曲线 <span class="tag" id="chartTag"></span></div>
+    <div class="chart-wrap">
+      <img id="chartImg" alt="回测图表" class="chart-img">
+    </div>
+  </section>
+
+  <!-- 基金专析 -->
+  <section id="fundSection" class="card hidden">
+    <div class="card-title">🎯 基金专析 <span class="tag" id="fundTag"></span></div>
+    <div class="kpi-grid" style="margin-bottom: 14px;">
+      <div class="kpi"><p class="kpi-label">基金名称</p><p class="kpi-value" id="fundName" style="font-size:15px;">—</p></div>
+      <div class="kpi"><p class="kpi-label">规模/经理</p><p class="kpi-value" id="fundMeta" style="font-size:15px;">—</p></div>
+      <div class="kpi"><p class="kpi-label">最新净值</p><p class="kpi-value" id="fundNav">—</p></div>
+      <div class="kpi"><p class="kpi-label">近5日涨跌</p><p class="kpi-value" id="fundChg5">—</p></div>
+      <div class="kpi"><p class="kpi-label">趋势分</p><p class="kpi-value gold" id="fundTrendScore">—</p></div>
+      <div class="kpi"><p class="kpi-label">止损分</p><p class="kpi-value" id="fundStopScore">—</p></div>
+    </div>
+    <div class="chart-wrap" style="margin-bottom: 14px;">
+      <img id="fundChart" class="chart-img" alt="基金净值走势">
+    </div>
+    <div class="table-wrap">
+      <table id="fundTable">
+        <thead><tr><th>代码</th><th>名称</th><th>占比%</th><th>信号</th><th>趋势</th><th>现价</th><th>止损参考</th><th>站回</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="checks" id="fundChecks" style="margin-top: 14px;"></div>
+    <div class="best-line" id="fundVerdict" style="margin-top: 12px;"></div>
+  </section>
+
+  <!-- 多股票监控 -->
+  <section id="watchSection" class="card hidden">
+    <div class="card-title">📋 多股票监控 <span class="tag" id="watchTag"></span></div>
+    <div class="table-wrap">
+      <table id="watchTable">
+        <thead><tr><th>代码</th><th>信号</th><th>现价</th><th>趋势</th><th>快线</th><th>慢线</th><th>量比</th><th>止损参考</th><th>理由</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <p class="hint" style="margin-top: 10px;">💡 想看某只的深度 AI 研判? 把它单独填入代码框, 点"🧠 AI 综合研判"</p>
+  </section>
+
+  <!-- AI 综合研判 -->
+  <section id="advisorSection" class="card hidden">
+    <div class="card-title">🧠 AI 综合研判 <span class="tag" id="advisorTag"></span></div>
+    <div class="signal-main">
+      <p class="signal-text" id="advisorVerdict" style="font-size: 26px;">—</p>
+      <p class="hint" style="margin-top: 8px;" id="advisorSummary"></p>
+      <div class="conf-bar"><div class="conf-fill" id="advisorConf"></div></div>
+      <p class="hint" id="advisorConfText"></p>
+    </div>
+    <div class="grid-2" style="margin-bottom: 0;">
+      <div>
+        <p class="kpi-label" style="margin-bottom: 6px;">AI 理由</p>
+        <ul class="reason-list" id="advisorReasons"></ul>
+        <p class="kpi-label" style="margin: 12px 0 6px;">风险提示</p>
+        <ul class="reason-list warn" id="advisorRisks"></ul>
+      </div>
+      <div>
+        <p class="kpi-label" style="margin-bottom: 6px;">今日热点板块</p>
+        <div class="sector-tags" id="advisorSectors"></div>
+        <p class="kpi-label" style="margin: 12px 0 6px;">近期新闻</p>
+        <ul class="reason-list" id="advisorNews"></ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 今日信号 -->
+  <section id="signalSection" class="card hidden">
+    <div class="card-title">📡 今日信号 <span class="tag" id="signalTag"></span></div>
+    <div class="signal-main">
+      <p class="signal-text" id="signalText">—</p>
+      <p class="hint" id="signalReason" style="margin-top: 8px;"></p>
+    </div>
+    <div class="kpi-grid" style="margin-bottom: 0;">
+      <div class="kpi"><p class="kpi-label">现价</p><p class="kpi-value" id="sigPrice">—</p></div>
+      <div class="kpi"><p class="kpi-label">趋势</p><p class="kpi-value" id="sigTrend">—</p></div>
+      <div class="kpi"><p class="kpi-label">快线</p><p class="kpi-value" id="sigMaf" style="font-size:18px;">—</p></div>
+      <div class="kpi"><p class="kpi-label">慢线</p><p class="kpi-value" id="sigMas" style="font-size:18px;">—</p></div>
+      <div class="kpi"><p class="kpi-label">量比</p><p class="kpi-value" id="sigVol">—</p></div>
+      <div class="kpi"><p class="kpi-label">止损参考</p><p class="kpi-value danger" id="sigStop">—</p></div>
+    </div>
+  </section>
+
+  <!-- 自动迭代进度 -->
+  <section id="iterSection" class="card hidden">
+    <div class="card-title">🔁 自动迭代系统 <span class="tag">AI 在环进化中</span></div>
+    <div class="kpi-grid" style="margin-bottom: 14px;">
+      <div class="kpi"><p class="kpi-label">当前轮次</p><p class="kpi-value" id="iterRound">—</p></div>
+      <div class="kpi"><p class="kpi-label">运行时间</p><p class="kpi-value" id="iterTime" style="font-size:18px;">—</p></div>
+      <div class="kpi"><p class="kpi-label">最优综合分</p><p class="kpi-value gold" id="iterScore">—</p></div>
+      <div class="kpi"><p class="kpi-label">最优年化</p><p class="kpi-value" id="iterAnn">—</p></div>
+    </div>
+    <div class="progress-track" style="width:100%; margin-bottom: 10px;"><div class="progress-bar" id="iterBar" style="animation:none;"></div></div>
+    <p class="hint" id="iterBest" style="margin-bottom: 10px;">等待第一轮结果...</p>
+    <div class="table-wrap">
+      <table id="iterTable">
+        <thead><tr><th>轮次</th><th>来源</th><th>快线</th><th>慢线</th><th>止损</th><th>量过滤</th><th>综合分</th><th>修正分</th><th>年化%</th><th>回撤%</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 寻优结果 + AI 报告 -->
+  <section id="resultSection" class="grid-2 hidden">
+    <div class="card">
+      <div class="card-title">🏆 参数寻优 Top10 <span class="tag" id="optCount"></span></div>
+      <div class="table-wrap">
+        <table id="optTable">
+          <thead>
+            <tr><th>#</th><th>快线</th><th>慢线</th><th>年化%</th><th>回撤%</th><th>夏普</th><th>胜率</th><th>次数</th><th>综合分</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="best-line" id="bestLine"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">🤖 AI 教练报告</div>
+      <div class="ai-report" id="aiReport">
+        <p class="placeholder">点击「开始优化」后, 本地 AI 会在这里点评策略并给出改进建议。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 错误提示 -->
+  <section id="errorBox" class="card error hidden">
+    <p id="errorText"></p>
+  </section>
+
+  <footer class="foot">
+    <p>⚠️ 虚拟盘仅供学习研究 · 所有收益均为历史模拟, 不代表未来表现 · 不构成投资建议</p>
+  </footer>
+</main>
+
+<div id="toast" class="toast hidden"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>
